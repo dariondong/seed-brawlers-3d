@@ -66,11 +66,16 @@ npm run pages   # 同步引擎 + 启动零依赖静态服务器
 本仓库自带工作流 [`.github/workflows/pages.yml`](.github/workflows/pages.yml)：
 
 1. push 到 `main` 后自动触发（也可在 Actions 页面手动 `workflow_dispatch`）。
-2. 流程：`checkout → 同步 engine 到 public/engine → npm test → 上传 public/ → deploy-pages`。
+2. 流程：`checkout → npm ci → 同步 engine 到 public/engine → npm test → 上传 public/ → deploy-pages`。
 3. 部署完成后访问：<https://dariondong.github.io/seed-brawlers-3d/>
 
-> ⚠️ GitHub Free 计划下 Pages 仅支持**公开仓库**；若仓库为私有，需在 Settings → Pages 或升级计划后启用。
-> 首次部署若未自动开启 Pages，去 **Settings → Pages → Build and deployment → Source 选择 “GitHub Actions”** 即可。
+**首次使用需一次性开启 Pages（约 10 秒）：**
+
+> 打开仓库 **Settings → Pages → Build and deployment → Source 选择 “GitHub Actions”**，保存即可。
+> 之后每次 push 到 `main` 都会自动重新部署。
+> （受权限限制，工作流无法自行创建 Pages 站点；这一步需要在网页端点一次。若你使用带 `pages:write` 权限的 PAT，工作流的 `enablement: true` 也能自动完成。）
+
+> 💡 GitHub Free 计划下 Pages 仅支持**公开仓库**；本仓库已设为公开。
 
 ---
 
