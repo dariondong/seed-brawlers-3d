@@ -1,22 +1,21 @@
 import * as THREE from './vendor/three.module.js';
 import { OrbitControls } from './vendor/addons/controls/OrbitControls.js';
 import { buildHumanoid } from './humanoid.js';
+import { createMelee, spawnPositions, DT as MELEE_DT } from './engine/royale.js';
 
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const easeOut = (t) => 1 - (1 - t) ** 3;
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
 
-// 瑞士风格：浅纸面背景 + 墨黑 + 单一红色重音
-const PAPER = '#f4f3ef';
-const PAPER_2 = '#ffffff';
-const INK = '#121212';
-const RED = '#e2231a';
-const RULE = '#d4d2cb';
+// 暗色竞技场配色：深空底 + 冷调地面 + 琥珀金重音（冠军/名次）
+const PAPER = '#0b0e14'; // 主背景（深空）
+const PAPER_2 = '#12151f'; // 地面
+const INK = '#e8ecf5'; // 线条 / 冲击标记（暗底上用亮色）
+const RED = '#ff5a5f'; // 危险色
+const GOLD = '#ffb020'; // 冠军金
+const RULE = '#2a3040';
 
-// 大乱斗节奏（秒）
-const T_INTRO = 0.6;
-const T_FIGHT = 1.25;
-const T_ROUND_END = 0.55;
+// 混战节奏（秒）
 const T_CHAMPION = 3;
 
 // 待机/单挑节奏
@@ -72,25 +71,9 @@ function makeNameSprite(fighter, scale) {
 }
 
 // 按人数排布阵型：2 人时左右对立，多人时黄金角螺旋铺满圆形场地。
+// 直接复用引擎的 spawnPositions，保证画面与模拟同一套出生点。
 function formation(count) {
-  if (count <= 1) return [{ x: 0, z: 0, ry: 0 }];
-  if (count === 2) {
-    return [
-      { x: -1.7, z: 0, ry: Math.PI / 2 },
-      { x: 1.7, z: 0, ry: -Math.PI / 2 },
-    ];
-  }
-  const radius = Math.max(3.2, 0.95 * Math.sqrt(count));
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const out = [];
-  for (let i = 0; i < count; i++) {
-    const r = radius * Math.sqrt((i + 0.4) / count);
-    const th = i * golden;
-    const x = Math.cos(th) * r;
-    const z = Math.sin(th) * r;
-    out.push({ x, z, ry: Math.atan2(-x, -z) });
-  }
-  return out;
+  return spawnPositions(count);
 }
 
 export class Arena {
@@ -143,50 +126,60 @@ export class Arena {
   }
 
   #buildWorld() {
-    // 浅色纸面 + 柔和平行光：整体明亮、对比干净（瑞士风不做霓虹夜场）
-    this.hemi = new THREE.HemisphereLight('#ffffff', '#d9d7cf', 1.65);
+    // 暗色竞技场：冷调环境光 + 暖色主光，让方块小人从深底上“浮”出来。
+    this.hemi = new THREE.HemisphereLight('#93a6d4', '#0a0e18', 1.25);
     this.scene.add(this.hemi);
 
-    this.key = new THREE.DirectionalLight('#ffffff', 1.15);
-    this.key.position.set(6, 14, 8);
+    this.key = new THREE.DirectionalLight('#fff4e2', 2.8);
+    this.key.position.set(7, 15, 9);
     this.key.castShadow = true;
     this.key.shadow.mapSize.set(1024, 1024);
     this.key.shadow.camera.near = 1;
     this.key.shadow.camera.far = 70;
     this.scene.add(this.key);
 
+    // 冷色补光：从对侧压出边缘，增强体积感
+    this.rim = new THREE.DirectionalLight('#6f8dff', 1.25);
+    this.rim.position.set(-9, 7, -8);
+    this.scene.add(this.rim);
+
+    // 场地中心柔光，突出擂台
+    this.spot = new THREE.PointLight('#ffd9a0', 1.1, 40, 2);
+    this.spot.position.set(0, 9, 0);
+    this.scene.add(this.spot);
+
     this.floor = new THREE.Mesh(
       new THREE.CircleGeometry(1, 64),
-      new THREE.MeshStandardMaterial({ color: PAPER_2, metalness: 0.0, roughness: 0.96 }),
+      new THREE.MeshStandardMaterial({ color: PAPER_2, metalness: 0.3, roughness: 0.55 }),
     );
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.receiveShadow = true;
     this.scene.add(this.floor);
 
-    // 场地外圈：墨黑细线
+    // 场地外圈：冷光细线
     this.ring = new THREE.Mesh(
       new THREE.RingGeometry(1, 1.02, 128),
-      new THREE.MeshBasicMaterial({ color: INK, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }),
+      new THREE.MeshBasicMaterial({ color: '#46557a', side: THREE.DoubleSide, transparent: true, opacity: 0.9 }),
     );
     this.ring.rotation.x = -Math.PI / 2;
     this.ring.position.y = 0.01;
     this.scene.add(this.ring);
 
-    // 内圈红色细线
+    // 内圈重音细线（琥珀金）
     this.ringInner = new THREE.Mesh(
       new THREE.RingGeometry(1, 1.015, 128),
-      new THREE.MeshBasicMaterial({ color: RED, side: THREE.DoubleSide, transparent: true, opacity: 0.85 }),
+      new THREE.MeshBasicMaterial({ color: GOLD, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }),
     );
     this.ringInner.rotation.x = -Math.PI / 2;
     this.ringInner.position.y = 0.012;
     this.scene.add(this.ringInner);
 
-    // 排版网格
-    this.grid = new THREE.GridHelper(40, 40, '#c9c7bf', '#e2e0d8');
+    // 暗色地面上的淡网格
+    this.grid = new THREE.GridHelper(40, 40, '#1d2432', '#161b26');
     this.grid.position.y = 0.004;
     this.scene.add(this.grid);
 
-    // 对撞白闪（墨黑场地里只做一下短促提亮）
+    // 对撞白闪
     this.contactLight = new THREE.PointLight('#ffffff', 0, 12, 2);
     this.contactLight.position.set(0, 1.2, 0);
     this.scene.add(this.contactLight);
@@ -280,6 +273,11 @@ export class Arena {
         offX: 0,
         offZ: 0,
         bob: Math.random() * Math.PI * 2,
+        // 混战专用：模拟坐标 + 挥击倒计时
+        mx: pos.x,
+        mz: pos.z,
+        mry: pos.ry,
+        swing: 0,
       });
     });
 
@@ -312,6 +310,10 @@ export class Arena {
       e.sink = 0;
       e.offX = 0;
       e.offZ = 0;
+      e.swing = 0;
+      e.mx = e.home.x;
+      e.mz = e.home.z;
+      e.mry = e.home.ry;
       e.group.visible = true;
       e.group.position.y = 0;
       e.group.rotation.set(0, e.home.ry, 0);
@@ -320,153 +322,122 @@ export class Arena {
     }
   }
 
-  // ---------------- 大乱斗 ----------------
+  // ---------------- 同台混战（真·乱斗） ----------------
+  // 直接用引擎的 createMelee 逐步推进：屏幕上所有人的走位就是模拟本身，
+  // 不再是「两两配对、逐轮淘汰」。
   playRoyale(result) {
     this.#resetAlive();
-    // 人越多节奏越快，避免 70 人时动画拖到 20 秒以上。
-    const size = result.size || this.count;
-    const speed = size > 40 ? 2.6 : size > 24 ? 2 : size > 12 ? 1.4 : 1;
+    const fighters = [];
+    for (const e of this.entries.values()) fighters.push(e.fighter);
+    // result 由后端产出；前端按同一 seed 重建，逐帧推进（保证与后端同解）。
+    this.melee = createMelee(fighters, { seed: result.seed, maxSize: fighters.length });
+
+    // 采用引擎算出的出生点
+    this.meleeUnits = new Map();
+    for (const s of this.melee.units) {
+      this.meleeUnits.set(s.id, s);
+      const e = this.#entry(s.id);
+      if (!e) continue;
+      e.mx = s.x;
+      e.mz = s.z;
+      e.mry = s.ry;
+      e.home = { x: s.x, z: s.z, ry: s.ry };
+    }
+
     this.anim = {
       kind: 'royale',
       result,
-      speed,
-      roundIndex: -1,
-      phase: 'round-intro',
-      t: 0,
-      clashes: [],
+      speed: this.speedScale,
+      acc: 0,
+      freeForAll: true,
+      alive: this.melee.alive,
+      total: this.melee.units.length,
+      doneT: 0,
+      graceT: 0, // 每 tick 至少播一帧，避免被压太薄
     };
-    this.#beginRound();
-  }
-
-  #beginRound() {
-    const anim = this.anim;
-    anim.roundIndex += 1;
-    anim.t = 0;
-    anim.phase = 'round-intro';
-    const round = anim.result.rounds[anim.roundIndex];
-    if (!round) {
-      this.anim = null;
-      return;
-    }
     this.hooks.onRound?.({
-      round: round.round,
-      totalRounds: anim.result.rounds.length,
-      fighters: round.fights.length * 2 + (round.bye ? 1 : 0),
-      bye: round.bye,
+      fighters: this.melee.units.length,
+      totalRounds: 1,
+      freeForAll: true,
     });
   }
 
-  #startFightPhase() {
+  // 推进混战模拟：按真实时间累积，固定步长 step()，保证 determinism 与画面一致。
+  #stepMelee(dt) {
     const anim = this.anim;
-    const round = anim.result.rounds[anim.roundIndex];
-    anim.clashes = round.fights.map((f) => {
-      const ea = this.#entry(f.a);
-      const eb = this.#entry(f.b);
-      const ax = ea ? ea.home.x + ea.offX : 0;
-      const az = ea ? ea.home.z + ea.offZ : 0;
-      const bx = eb ? eb.home.x + eb.offX : 0;
-      const bz = eb ? eb.home.z + eb.offZ : 0;
-      return { ...f, ax, az, bx, bz, mx: (ax + bx) / 2, mz: (az + bz) / 2 };
-    });
-    anim.phase = 'fight';
-    anim.t = 0;
-  }
+    const melee = this.melee;
+    if (!melee || melee.isDone()) return;
 
-  #applyFightPose(entry, dt) {
-    const anim = this.anim;
-    const localT = clamp01(anim.t / T_FIGHT);
-    const clash = anim.clashes.find((c) => c.a === entry.fighter.id || c.b === entry.fighter.id);
-    if (!clash) {
-      entry.offX *= 0.85;
-      entry.offZ *= 0.85;
-      return;
-    }
+    // 速度倍率作用在模拟推进上，可用暂停定格。
+    anim.acc += dt * this.speedScale;
+    let steps = 0;
+    const maxSteps = 8;
+    while (anim.acc >= MELEE_DT && steps < maxSteps && !melee.isDone()) {
+      anim.acc -= MELEE_DT;
+      steps += 1;
+      const touches = melee.step();
 
-    const isA = clash.a === entry.fighter.id;
-    const winner = clash.winner;
-    const approach = easeInOut(clamp01(localT / 0.5));
-    const homeX = entry.home.x;
-    const homeZ = entry.home.z;
-
-    entry.offX = (clash.mx - homeX) * 0.32 * approach;
-    entry.offZ = (clash.mz - homeZ) * 0.32 * approach;
-
-    const parts = entry.group.userData.parts;
-    const windup = easeOut(clamp01(localT / 0.5));
-    const impact = easeOut(clamp01((localT - 0.5) / 0.5));
-    parts.leftArm.shoulder.rotation.x = -0.3 - 0.9 * windup;
-    parts.rightArm.shoulder.rotation.x = -0.3 - 0.9 * windup;
-
-    if (entry.fighter.id === winner) {
-      // 胜者：冲击瞬间前压，随后回到站姿
-      const punch = Math.sin(impact * Math.PI);
-      parts.rightArm.shoulder.rotation.x = -0.3 - 1.9 * punch;
-      parts.leftArm.shoulder.rotation.x = -0.2 + 0.5 * punch;
-      entry.offX += Math.sign(clash.mx - homeX) * 0.22 * punch;
-      entry.offZ += Math.sign(clash.mz - homeZ) * 0.22 * punch;
-      entry.tip = 0;
-    } else {
-      // 败者：被撞飞、倒地
-      const tip = clamp01((localT - 0.6) / 0.4);
-      entry.tip = tip * 1.5;
-      entry.offX = (clash.mx - homeX) * 0.32 * approach - Math.sign(clash.mx - homeX) * 0.25 * tip;
-      entry.offZ = (clash.mz - homeZ) * 0.32 * approach - Math.sign(clash.mz - homeZ) * 0.25 * tip;
-      entry.sink = tip * 0.12;
-      parts.leftArm.shoulder.rotation.x = 0.9 * tip;
-      parts.rightArm.shoulder.rotation.x = 0.9 * tip;
-    }
-
-    // 命中瞬间的镜头抖动
-    if (localT > 0.44 && localT < 0.6) this.#addShake(0.42, 3.2);
-  }
-
-  #applyRoundEndPose(entry, dt) {
-    const step = dt / T_ROUND_END;
-    if (!entry.alive) {
-      entry.deadT = clamp01(entry.deadT + step);
-      entry.tip = 1.5;
-      entry.sink = 1.7 * easeInOut(entry.deadT);
-      entry.group.scale.setScalar(Math.max(0.05, 1 - entry.deadT));
-      if (entry.deadT >= 1) {
-        entry.dead = true;
-        entry.group.visible = false;
-        entry.sprite.visible = false;
+      for (const ev of touches) {
+        const isKo = ev.type === 'ko';
+        const actor = this.#entry(ev.actor);
+        const target = this.#entry(ev.target);
+        if (actor) actor.swing = 0.26;
+        if (target && isKo) {
+          target.alive = false;
+          target.deadT = 0;
+        }
+        this.#impact(ev.x, ev.z, { strong: isKo });
+        if (actor && target) this.#trail(actor, target.mx - actor.mx, target.mz - actor.mz);
+        if (isKo) {
+          anim.alive = ev.remaining;
+          this.hooks.onFight?.(ev);
+        }
       }
-    } else {
-      entry.offX *= 1 - Math.min(1, step);
-      entry.offZ *= 1 - Math.min(1, step);
-      entry.tip *= 1 - Math.min(1, step);
-      entry.sink *= 1 - Math.min(1, step);
+      anim.alive = melee.alive;
     }
   }
 
-  #finishRound() {
-    const anim = this.anim;
-    const round = anim.result.rounds[anim.roundIndex];
-    for (const f of round.fights) {
-      const loser = this.#entry(f.loser);
-      if (loser) loser.alive = false;
-      this.hooks.onFight?.(f);
-    }
-    anim.phase = 'round-end';
-    anim.t = 0;
-  }
+  // 把所有小人摆到模拟坐标上（含死亡下落）。
+  #applyMeleePose(entry, dt) {
+    const g = entry.group;
+    const parts = g.userData.parts;
+    const melee = this.melee;
+    const u = this.meleeUnits ? this.meleeUnits.get(entry.fighter.id) : null;
 
-  #advanceAfterRound() {
-    const anim = this.anim;
-    const last = anim.roundIndex >= anim.result.rounds.length - 1;
-    if (last) {
-      anim.phase = 'champion';
-      anim.t = 0;
-      const champ = this.#entry(anim.result.champion.id);
-      if (champ) {
-        champ.group.visible = true;
-        champ.sprite.visible = true;
+    // 挥击动画倒计时
+    entry.swing = Math.max(0, entry.swing - dt);
+    const punch = entry.swing > 0 ? Math.sin((1 - entry.swing / 0.26) * Math.PI) : 0;
+
+    if (u) {
+      entry.mx = u.x;
+      entry.mz = u.z;
+      entry.mry = u.ry;
+      if (!u.alive && !entry.dead) {
+        // 倒地：向后仰 + 下沉 + 缩小淡出
+        entry.deadT = clamp01(entry.deadT + dt * 1.6);
+        entry.tip = 1.5 * easeInOut(entry.deadT);
+        entry.sink = 1.5 * easeInOut(entry.deadT);
+        g.scale.setScalar(Math.max(0.06, 1 - entry.deadT));
+        if (entry.deadT >= 1 && !entry.dead) {
+          entry.dead = true;
+          g.visible = false;
+          entry.sprite.visible = false;
+        }
       }
-      this.hooks.onChampion?.(anim.result.champion);
-      return;
     }
-    this.#beginRound();
+
+    // 战斗姿态：双臂前后摆动，身体前倾
+    const bobS = Math.sin(this.elapsed * 9 + entry.bob);
+    parts.leftArm.shoulder.rotation.x = -0.35 - 0.9 * punch + bobS * 0.12;
+    parts.rightArm.shoulder.rotation.x = -0.35 - 0.9 * punch - bobS * 0.12;
+    parts.leftArm.elbow.rotation.x = -0.5 + 0.3 * punch;
+    parts.rightArm.elbow.rotation.x = -0.5 + 0.3 * punch;
+    parts.pelvis.rotation.y = (punch - 0.5) * 0.18;
+    parts.pelvis.rotation.x = 0.06 + 0.05 * punch;
+
+    const hop = !entry.dead && entry.alive ? Math.abs(Math.sin(this.elapsed * 9 + entry.bob)) * 0.05 : 0;
+    g.position.set(entry.mx, hop - entry.sink, entry.mz);
+    g.rotation.set(0, entry.mry, entry.tip);
   }
 
   // ---------------- 单挑 ----------------
@@ -571,26 +542,18 @@ export class Arena {
 
     const anim = this.anim;
     if (anim?.kind === 'royale') {
-      if (anim.phase === 'fight') this.#applyFightPose(entry, dt);
-      else if (anim.phase === 'round-end') this.#applyRoundEndPose(entry, dt);
-      else {
-        entry.offX *= 0.86;
-        entry.offZ *= 0.86;
-      }
-      px = entry.home.x + entry.offX;
-      pz = entry.home.z + entry.offZ;
-      tip = entry.tip;
-      py = -entry.sink;
-
-      if (anim.phase === 'champion' && anim.result.champion.id === entry.fighter.id) {
-        const hop = Math.abs(Math.sin(this.elapsed * 4));
-        py += hop * 0.25;
+      // 混战：位置完全由模拟给出（含倒地淡出），不再有回合概念。
+      this.#applyMeleePose(entry, dt);
+      if (anim.phase === 'champion' && anim.result.champion?.id === entry.fighter.id) {
+        const hop = Math.abs(Math.sin(this.elapsed * 5));
+        entry.group.position.y += hop * 0.22;
         parts.leftArm.shoulder.rotation.x = -2.6;
         parts.rightArm.shoulder.rotation.x = -2.6;
-        entry.tip = 0;
-        tip = 0;
       }
-    } else if (anim?.kind === 'duel') {
+      return;
+    }
+
+    if (anim?.kind === 'duel') {
       this.#applyDuelPose(entry, dt);
       if (anim.phase === 'finish') this.#applyDuelFinish();
       // offX 已带方向（A 为正、B 为负），直接叠加到主位即可。
@@ -603,22 +566,31 @@ export class Arena {
     g.rotation.set(0, entry.home.ry, tip);
   }
 
-  #stepAnim(dt) {
+  #stepAnim(dt, meleeDt = dt) {
     const anim = this.anim;
     if (!anim) return;
 
     if (anim.kind === 'royale') {
-      anim.t += dt * (anim.speed || 1) * this.speedScale;
-      if (anim.phase === 'round-intro') {
-        if (anim.t >= T_INTRO) this.#startFightPhase();
-      } else if (anim.phase === 'fight') {
-        if (anim.t >= T_FIGHT) this.#finishRound();
-      } else if (anim.phase === 'round-end') {
-        if (anim.t >= T_ROUND_END) this.#advanceAfterRound();
-      } else if (anim.phase === 'champion') {
-        if (anim.t >= T_CHAMPION) {
-          this.anim = null;
-          this.hooks.onRoyaleEnd?.(anim.result);
+      if (anim.freeForAll) {
+        // 混战：持续推进模拟；打完后停留片刻展示冠军。
+        if (!this.melee || this.melee.isDone()) {
+          if (!anim.championShown) {
+            anim.championShown = true;
+            anim.phase = 'champion';
+            const champ = this.#entry(anim.result.champion?.id);
+            if (champ) {
+              champ.group.visible = true;
+              champ.sprite.visible = true;
+            }
+            this.hooks.onChampion?.(anim.result.champion);
+          }
+          anim.doneT += dt * this.speedScale;
+          if (anim.doneT >= T_CHAMPION) {
+            this.anim = null;
+            this.hooks.onRoyaleEnd?.(anim.result);
+          }
+        } else {
+          this.#stepMelee(meleeDt);
         }
       }
       return;
@@ -762,35 +734,19 @@ export class Arena {
 
   #animate() {
     this._raf = requestAnimationFrame(() => this.#animate());
-    const raw = Math.min(0.05, this.clock.getDelta());
+    const delta = this.clock.getDelta();
+    const raw = Math.min(0.05, delta);
     // 暂停时冻结动画时间与特效，但仍持续渲染（保留可交互的相机）。
     const dt = this.paused ? 0 : raw;
+    // 混战推进用未截断的真实时间：低帧率下也让模拟按真实速度走完，
+    // 只是每帧多跑几步（上限 24 步，防卡顿雪崩）。
+    const meleeDt = this.paused ? 0 : Math.min(0.2, delta);
     this.elapsed += dt;
 
-    if (dt > 0) this.#stepAnim(dt);
+    if (dt > 0) this.#stepAnim(dt, meleeDt);
 
     const anim = this.anim;
-    if (dt > 0 && anim?.kind === 'royale' && anim.phase === 'fight' && this.count <= 40) {
-      const localT = anim.t / T_FIGHT;
-      if (localT > 0.44 && localT < 0.6) {
-        for (const c of anim.clashes) {
-          if (!c._impacted) {
-            c._impacted = true;
-            // 淘汰对手的一击 = strong，冲击感更强。
-            this.#impact(c.mx, c.mz, { strong: true });
-            // 出手者拖尾
-            const actor = this.#entry(c.winner);
-            const loser = this.#entry(c.winner === c.a ? c.b : c.a);
-            if (actor && loser) {
-              const dx = loser.group.position.x - actor.group.position.x;
-              const dz = loser.group.position.z - actor.group.position.z;
-              const len = Math.hypot(dx, dz) || 1;
-              this.#trail(actor, dx / len, dz / len);
-            }
-          }
-        }
-      }
-    }
+    // 混战的命中/倒地特效在 #stepMelee 内随模拟事件即时触发，这里无需重复。
     if (dt > 0 && anim?.kind === 'duel' && anim.phase === 'event') {
       const ev = anim.events[anim.idx];
       if (ev && (ev.type === 'hit' || ev.type === 'critical') && anim.t < 0.03) {

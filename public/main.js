@@ -63,16 +63,16 @@ const arena = new Arena(els.canvas, {
   },
   onRound: (info) => {
     els.roundBadge.style.display = 'block';
-    els.roundBadge.textContent = `第 ${info.round} / ${info.totalRounds} 轮 · 场上 ${info.fighters} 人`;
-    pushLog(`第 ${info.round} 轮开始：${info.fighters} 人同台` + (info.bye ? `（${info.bye.name} 轮空）` : ''), 'info');
+    els.roundBadge.textContent = `${info.fighters} 人同台混战`;
+    pushLog(`混战开始：${info.fighters} 人同时入场，最后站着的人获胜`, 'info');
   },
   onFight: (f) => {
-    pushLog(`${f.winnerName} 淘汰 ${f.loserName}`, 'hit');
+    pushLog(`${f.winnerName} 击倒 ${f.loserName}（剩 ${f.remaining} 人）`, 'hit');
   },
   onChampion: (champ) => {
     els.roundBadge.textContent = `冠军：${champ.name}`;
     els.championBanner.style.display = 'flex';
-    els.championBanner.innerHTML = `<span>大乱斗冠军</span><b>#${champ.number} ${champ.name}</b>`;
+    els.championBanner.innerHTML = `<span>混战冠军</span><b>#${champ.number} ${champ.name}</b>`;
     pushLog(`冠军诞生：#${champ.number} ${champ.name}`, 'win');
   },
   onRoyaleEnd: async (result) => {
@@ -122,7 +122,7 @@ function renderFighterCard(fighter) {
   if (!fighter) return `<div class="card-empty">未选择</div>`;
   return `
     <div class="card-head" style="--accent:${fighter.color}">
-      <div class="avatar" style="background:${fighter.color}22;border-color:${fighter.color}">${fighter.glyph}</div>
+      <div class="avatar" style="--accent:${fighter.color}">#${fighter.number}</div>
       <div>
         <div class="card-name">${fighter.name}</div>
         <div class="card-sub">#${fighter.number} · ${fighter.archetypeLabel} · ${fighter.elementLabel}</div>
@@ -228,8 +228,8 @@ function updateButtons() {
   els.addBtn.disabled = busy || fighters.length >= MAX_ROSTER;
   els.add70.disabled = busy || fighters.length >= MAX_ROSTER;
   els.drawBtn.disabled = busy;
-  if (fighters.length >= 2) els.royaleBtn.textContent = `${fighters.length} 人大乱斗`;
-  else els.royaleBtn.textContent = '大乱斗';
+  if (fighters.length >= 2) els.royaleBtn.textContent = `${fighters.length} 人开打`;
+  else els.royaleBtn.textContent = '开打混战';
 }
 
 // ---------- 自定义名单（摇号名单）----------
@@ -372,7 +372,7 @@ async function doRoyale() {
     els.roundBadge.style.display = 'block';
     els.roundBadge.textContent = '准备…';
     els.log.innerHTML = '';
-    pushLog(`${fighters.length} 人同台大乱斗`, 'info');
+    pushLog(`${fighters.length} 人同台混战`, 'info');
     const res = await api.royale({ size: Math.min(MAX_ROSTER, fighters.length) });
     leaderboard = res.leaderboard;
     renderLeaderboard();

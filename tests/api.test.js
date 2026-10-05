@@ -88,7 +88,9 @@ test('70 人大乱斗：返回唯一冠军并更新战绩', async () => {
     assert.equal(res.size, 70);
     assert.ok(res.result.champion);
     assert.equal(res.result.totalFights, 69);
-    assert.equal(res.result.rounds.length, 7);
+    assert.equal(res.result.mode, 'melee');
+    assert.equal(res.result.events.length, 69); // 69 次击倒 = 69 人被淘汰
+    assert.equal(res.result.standings.length, 70);
 
     // 战绩已写回：总共应有 69 场对局被记录
     const totalGames = res.leaderboard.reduce((n, f) => n + f.wins + f.losses, 0);
