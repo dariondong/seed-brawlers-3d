@@ -10,6 +10,8 @@
 
 **🌐 在线体验（GitHub Pages）：<https://dariondong.github.io/seed-brawlers-3d/>**
 
+![界面预览](docs/screenshot.png)
+
 ---
 
 ## ✨ 功能一览
