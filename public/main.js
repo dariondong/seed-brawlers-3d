@@ -27,10 +27,14 @@ const els = {
   hpB: $('hpB'),
   hpTextA: $('hpTextA'),
   hpTextB: $('hpTextB'),
+  slotLabelA: $('slotLabelA'),
+  slotLabelB: $('slotLabelB'),
   hpOverlay: $('hpOverlay'),
   roundBadge: $('roundBadge'),
   championBanner: $('championBanner'),
-  poolSize: $('poolSize'),
+  speedSel: $('speedSel'),
+  pauseBtn: $('pauseBtn'),
+  demoRosterBtn: $('demoRosterBtn'),
   modeBadge: $('modeBadge'),
   rosterBtn: $('rosterBtn'),
   rosterModal: $('rosterModal'),
@@ -60,7 +64,7 @@ const arena = new Arena(els.canvas, {
   onRound: (info) => {
     els.roundBadge.style.display = 'block';
     els.roundBadge.textContent = `第 ${info.round} / ${info.totalRounds} 轮 · 场上 ${info.fighters} 人`;
-    pushLog(`⚔️ 第 ${info.round} 轮开始：${info.fighters} 人同台` + (info.bye ? `（${info.bye.name} 轮空）` : ''), 'info');
+    pushLog(`第 ${info.round} 轮开始：${info.fighters} 人同台` + (info.bye ? `（${info.bye.name} 轮空）` : ''), 'info');
   },
   onFight: (f) => {
     pushLog(`${f.winnerName} 淘汰 ${f.loserName}`, 'hit');
@@ -68,8 +72,8 @@ const arena = new Arena(els.canvas, {
   onChampion: (champ) => {
     els.roundBadge.textContent = `冠军：${champ.name}`;
     els.championBanner.style.display = 'flex';
-    els.championBanner.innerHTML = `<span>🏆 大乱斗冠军</span><b>#${champ.number} ${champ.name}</b>`;
-    pushLog(`🏆 冠军诞生：#${champ.number} ${champ.name}`, 'win');
+    els.championBanner.innerHTML = `<span>大乱斗冠军</span><b>#${champ.number} ${champ.name}</b>`;
+    pushLog(`冠军诞生：#${champ.number} ${champ.name}`, 'win');
   },
   onRoyaleEnd: async (result) => {
     els.roundBadge.style.display = 'none';
@@ -88,7 +92,7 @@ const arena = new Arena(els.canvas, {
   onDuelFinish: async (result) => {
     const name = (id) => byId.get(id)?.name || id;
     if (!result.winner) pushLog('平局！双方都倒下了。', 'draw');
-    else pushLog(`🏆 ${name(result.winner)} 获胜！（${result.method}）`, 'win');
+    else pushLog(`${name(result.winner)} 获胜（${result.method}）`, 'win');
     await refresh();
     busy = false;
     updateButtons();
@@ -142,7 +146,7 @@ function renderHp(key, hp) {
   const bar = key === 'A' ? els.hpA : els.hpB;
   const txt = key === 'A' ? els.hpTextA : els.hpTextB;
   bar.style.width = `${ratio * 100}%`;
-  bar.style.background = ratio > 0.5 ? '#4dd07a' : ratio > 0.22 ? '#ffd54f' : '#ff5a3c';
+  bar.style.background = ratio > 0.5 ? '#121212' : '#e2231a';
   txt.textContent = `${Math.max(0, Math.round(hp))} / ${fighter.derived.maxHp}`;
 }
 
@@ -154,6 +158,8 @@ function fullHp() {
 function renderSlots() {
   els.slotA.innerHTML = renderFighterCard(selection.A);
   els.slotB.innerHTML = renderFighterCard(selection.B);
+  if (els.slotLabelA) els.slotLabelA.textContent = selection.A ? `#${selection.A.number} ${selection.A.name}` : 'A';
+  if (els.slotLabelB) els.slotLabelB.textContent = selection.B ? `#${selection.B.number} ${selection.B.name}` : 'B';
   fullHp();
 }
 
@@ -186,15 +192,15 @@ function renderLeaderboard() {
   }
   els.leaderboard.innerHTML = leaderboard
     .map((f, i) => {
-      const rank = i + 1;
-      const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}`;
+      const rank = String(i + 1).padStart(2, '0');
       const rate = f.total > 0 ? f.winRate : null;
-      return `<div class="lb-row ${rank <= 3 ? 'lb-top' : ''} ${selection.A?.id === f.id ? 'lb-a' : ''} ${selection.B?.id === f.id ? 'lb-b' : ''}">
-        <div class="lb-rank">${medal}</div>
+      const isTop = i < 3;
+      return `<div class="lb-row ${isTop ? 'lb-top' : ''} ${selection.A?.id === f.id ? 'lb-a' : ''} ${selection.B?.id === f.id ? 'lb-b' : ''}">
+        <div class="lb-rank">${rank}</div>
         <div class="lb-main">
-          <div class="lb-name" style="color:${f.color}">${f.name}</div>
+          <div class="lb-name">${f.name}</div>
           <div class="lb-meta">#${f.number} · ${f.archetypeLabel} · 战力 ${f.power}</div>
-          <div class="lb-bar"><i style="width:${(rate ?? 0) * 100}%;background:${f.color}"></i></div>
+          <div class="lb-bar"><i style="width:${(rate ?? 0) * 100}%"></i></div>
         </div>
         <div class="lb-stats">
           <div class="lb-rate">${fmtPct(rate)}</div>
@@ -205,6 +211,16 @@ function renderLeaderboard() {
     .join('');
 }
 
+function resetPlayback() {
+  arena.paused = false;
+  arena.speedScale = 1;
+  if (els.pauseBtn) {
+    els.pauseBtn.textContent = '暂停';
+    els.pauseBtn.classList.remove('danger');
+  }
+  if (els.speedSel) els.speedSel.value = '1';
+}
+
 function updateButtons() {
   els.royaleBtn.disabled = fighters.length < 2 || busy;
   els.battleBtn.disabled = fighters.length < 2 || busy;
@@ -212,8 +228,8 @@ function updateButtons() {
   els.addBtn.disabled = busy || fighters.length >= MAX_ROSTER;
   els.add70.disabled = busy || fighters.length >= MAX_ROSTER;
   els.drawBtn.disabled = busy;
-  if (fighters.length >= 2) els.royaleBtn.textContent = `${fighters.length} 人大乱斗 🏟️`;
-  else els.royaleBtn.textContent = '大乱斗 🏟️';
+  if (fighters.length >= 2) els.royaleBtn.textContent = `${fighters.length} 人大乱斗`;
+  else els.royaleBtn.textContent = '大乱斗';
 }
 
 // ---------- 自定义名单（摇号名单）----------
@@ -350,12 +366,13 @@ async function doRoyale() {
   try {
     busy = true;
     updateButtons();
+    resetPlayback();
     els.championBanner.style.display = 'none';
     els.hpOverlay.style.display = 'none';
     els.roundBadge.style.display = 'block';
     els.roundBadge.textContent = '准备…';
     els.log.innerHTML = '';
-    pushLog(`🏟️ ${fighters.length} 人同台大乱斗！`, 'info');
+    pushLog(`${fighters.length} 人同台大乱斗`, 'info');
     const res = await api.royale({ size: Math.min(MAX_ROSTER, fighters.length) });
     leaderboard = res.leaderboard;
     renderLeaderboard();
@@ -372,6 +389,7 @@ async function doDuel() {
   try {
     busy = true;
     updateButtons();
+    resetPlayback();
     els.championBanner.style.display = 'none';
     els.hpOverlay.style.display = 'flex';
     els.roundBadge.style.display = 'none';
@@ -452,17 +470,33 @@ els.sampleBtn.addEventListener('click', () => {
 });
 els.rosterAppend.addEventListener('click', () => applyRoster('append'));
 els.rosterReplace.addEventListener('click', () => applyRoster('replace'));
+
+els.speedSel.addEventListener('change', () => {
+  arena.speedScale = Number(els.speedSel.value) || 1;
+});
+els.pauseBtn.addEventListener('click', () => {
+  arena.paused = !arena.paused;
+  els.pauseBtn.textContent = arena.paused ? '继续' : '暂停';
+  els.pauseBtn.classList.toggle('danger', arena.paused);
+});
+els.demoRosterBtn.addEventListener('click', async () => {
+  if (busy) return;
+  els.rosterText.value = SAMPLE_NAMES.join('\n');
+  els.rosterCountInput.value = SAMPLE_NAMES.length;
+  await applyRoster('replace');
+  if (!busy) doRoyale();
+});
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeRosterModal();
 });
 
 window.addEventListener('error', (e) => {
   setStatus(`脚本错误：${e.message}`, 'err');
-  pushLog(`⚠️ ${e.message}`, 'err');
+  pushLog(`脚本错误：${e.message}`, 'err');
 });
 window.addEventListener('unhandledrejection', (e) => {
   setStatus(`异步错误：${e.reason}`, 'err');
-  pushLog(`⚠️ ${e.reason}`, 'err');
+  pushLog(`异步错误：${e.reason}`, 'err');
 });
 
 refresh()

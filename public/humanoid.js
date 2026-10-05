@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 
-function mat(color, { emissive = '#000000', emissiveIntensity = 0.35, metalness = 0.35, roughness = 0.5 } = {}) {
+function mat(color, { emissive = '#000000', emissiveIntensity = 0, metalness = 0.12, roughness = 0.62 } = {}) {
   return new THREE.MeshStandardMaterial({
     color: new THREE.Color(color),
     emissive: new THREE.Color(emissive),
@@ -26,8 +26,9 @@ export function buildHumanoid(fighter, { light = true } = {}) {
   const root = new THREE.Group();
   root.name = fighter.id;
 
-  const skin = mat(color, { emissive: glow, emissiveIntensity: 0.22, metalness: 0.4, roughness: 0.42 });
-  const armor = mat(shade(color, -0.32), { emissive: glow, emissiveIntensity: 0.12, metalness: 0.6, roughness: 0.35 });
+  // 瑞士风：哑光平涂，不使用自发光；靠明度区分躯干与四肢。
+  const skin = mat(color, { metalness: 0.06, roughness: 0.72 });
+  const armor = mat(shade(color, -0.34), { metalness: 0.18, roughness: 0.58 });
   const core = new THREE.MeshBasicMaterial({ color: new THREE.Color(glow) });
 
   const H = body.height;

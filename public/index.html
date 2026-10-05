@@ -4,34 +4,34 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>抽号斗士 3D · 名单摇号 · 同台大乱斗</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A5%8A%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f4f3ef'/%3E%3Crect x='46' y='14' width='8' height='72' fill='%23e2231a'/%3E%3Crect x='14' y='46' width='72' height='8' fill='%23121212'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <span class="logo">🥊</span>
+        <span class="logo">抽</span>
         <div>
           <h1>抽号斗士 3D</h1>
-          <p>自定义名单摇号 · 号码即种子 · 2~70 人同台对撞 · 右侧胜率榜</p>
+          <p>自定义名单摇号 · 号码即种子 · 2–70 人同台对撞 · 右侧胜率榜</p>
           <span id="modeBadge" class="mode-badge" hidden></span>
         </div>
       </div>
       <div class="controls">
-        <input id="numberInput" type="number" min="0" placeholder="号码（留空=下一个）" />
+        <input id="numberInput" type="number" min="0" placeholder="号码（留空＝下一个）" />
         <button id="drawBtn" class="btn primary">抽号生成</button>
         <button id="autoDrawBtn" class="btn">自动抽 2 号</button>
         <button id="add70" class="btn">抽满 70</button>
-        <button id="rosterBtn" class="btn">📋 自定义名单</button>
-        <button id="royaleBtn" class="btn danger" disabled>大乱斗 🏟️</button>
+        <button id="rosterBtn" class="btn">自定义名单</button>
+        <button id="royaleBtn" class="btn danger" disabled>大乱斗</button>
         <select id="bestOf" title="单挑系列赛局数">
-          <option value="1">单挑·单局</option>
-          <option value="3">单挑·三局两胜</option>
-          <option value="5" selected>单挑·五局三胜</option>
-          <option value="7">单挑·七局四胜</option>
+          <option value="1">单挑 · 单局</option>
+          <option value="3">单挑 · 三局两胜</option>
+          <option value="5" selected>单挑 · 五局三胜</option>
+          <option value="7">单挑 · 七局四胜</option>
         </select>
-        <button id="battleBtn" class="btn" disabled>单挑 ⚔️</button>
+        <button id="battleBtn" class="btn" disabled>单挑</button>
         <button id="resetBtn" class="btn ghost">重置</button>
       </div>
     </header>
@@ -54,6 +54,16 @@
           </div>
         </div>
 
+        <div class="stage-tools">
+          <select id="speedSel" title="大乱斗播放速度">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+          </select>
+          <button id="pauseBtn" class="btn small ghost" title="暂停 / 继续动画">暂停</button>
+        </div>
+
         <div id="roundBadge" class="round-badge" style="display:none"></div>
         <div id="championBanner" class="champion-banner" style="display:none"></div>
         <div id="status" class="status"></div>
@@ -61,7 +71,7 @@
 
       <aside class="panel">
         <div class="panel-head">
-          <h2>🏆 胜率排行榜</h2>
+          <h2>胜率排行榜</h2>
           <span class="hint">按胜率排序</span>
         </div>
         <div id="leaderboard" class="leaderboard"></div>
@@ -76,6 +86,7 @@
           <div class="add-row">
             <input id="addNumber" class="tiny" type="number" min="1" max="70" value="10" />
             <button id="addBtn" class="btn small">批量抽号</button>
+            <button id="demoRosterBtn" class="btn small ghost" title="一键填入 20 人示例名单并开打">名单演示</button>
             <span id="rosterCount" class="hint"></span>
           </div>
           <div id="roster" class="roster"></div>
@@ -97,12 +108,12 @@
   <div id="rosterModal" class="modal">
     <div class="modal-card">
       <div class="modal-head">
-        <h3>📋 自定义名单（摇号名单）</h3>
-        <button id="rosterClose" class="btn ghost small">✕</button>
+        <h3>自定义名单（摇号名单）</h3>
+        <button id="rosterClose" class="btn ghost small">关闭</button>
       </div>
       <p class="modal-hint">
         每行一个名字（也支持逗号 / 顿号分隔）。名单里的第几号就是抽到的号码，号码决定属性与外观；
-          「追加」把新名字排在现有号码之后，「清空并替换」则从 1 号开始、战绩清零全新开打。
+        「追加」把新名字排在现有号码之后，「清空并替换」则从 1 号开始、战绩清零全新开打。
       </p>
       <textarea id="rosterText" placeholder="赵子龙&#10;关云长&#10;张翼德&#10;马孟起"></textarea>
       <div class="modal-row">
