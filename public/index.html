@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>抽号斗士 3D · 名单摇号 · 同台大乱斗</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A5%8A%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">🥊</span>
+        <div>
+          <h1>抽号斗士 3D</h1>
+          <p>自定义名单摇号 · 号码即种子 · 2~70 人同台对撞 · 右侧胜率榜</p>
+        </div>
+      </div>
+      <div class="controls">
+        <input id="numberInput" type="number" min="0" placeholder="号码（留空=下一个）" />
+        <button id="drawBtn" class="btn primary">抽号生成</button>
+        <button id="autoDrawBtn" class="btn">自动抽 2 号</button>
+        <button id="add70" class="btn">抽满 70</button>
+        <button id="rosterBtn" class="btn">📋 自定义名单</button>
+        <button id="royaleBtn" class="btn danger" disabled>大乱斗 🏟️</button>
+        <select id="bestOf" title="单挑系列赛局数">
+          <option value="1">单挑·单局</option>
+          <option value="3">单挑·三局两胜</option>
+          <option value="5" selected>单挑·五局三胜</option>
+          <option value="7">单挑·七局四胜</option>
+        </select>
+        <button id="battleBtn" class="btn" disabled>单挑 ⚔️</button>
+        <button id="resetBtn" class="btn ghost">重置</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="stage">
+        <canvas id="canvas"></canvas>
+
+        <div id="hpOverlay" class="hp-overlay">
+          <div class="hp-side">
+            <div class="hp-label" id="slotLabelA">A</div>
+            <div class="hp-track"><i id="hpA" style="width:100%"></i></div>
+            <div class="hp-text" id="hpTextA">—</div>
+          </div>
+          <div class="vs">VS</div>
+          <div class="hp-side right">
+            <div class="hp-label" id="slotLabelB">B</div>
+            <div class="hp-track"><i id="hpB" style="width:100%"></i></div>
+            <div class="hp-text" id="hpTextB">—</div>
+          </div>
+        </div>
+
+        <div id="roundBadge" class="round-badge" style="display:none"></div>
+        <div id="championBanner" class="champion-banner" style="display:none"></div>
+        <div id="status" class="status"></div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <h2>🏆 胜率排行榜</h2>
+          <span class="hint">按胜率排序</span>
+        </div>
+        <div id="leaderboard" class="leaderboard"></div>
+      </aside>
+
+      <section class="dock">
+        <div class="dock-col">
+          <div class="panel-head">
+            <h2>抽号池</h2>
+            <input id="rosterSearch" class="search" placeholder="搜索姓名 / 号码" />
+          </div>
+          <div class="add-row">
+            <input id="addNumber" class="tiny" type="number" min="1" max="70" value="10" />
+            <button id="addBtn" class="btn small">批量抽号</button>
+            <span id="rosterCount" class="hint"></span>
+          </div>
+          <div id="roster" class="roster"></div>
+        </div>
+
+        <div class="dock-col">
+          <div class="panel-head"><h2>对撞区</h2><span class="hint">点击号码换人</span></div>
+          <div class="cards">
+            <div id="slotA" class="card"></div>
+            <div id="slotB" class="card"></div>
+          </div>
+          <div class="panel-head"><h2>战报</h2></div>
+          <div id="log" class="log"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="rosterModal" class="modal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>📋 自定义名单（摇号名单）</h3>
+        <button id="rosterClose" class="btn ghost small">✕</button>
+      </div>
+      <p class="modal-hint">
+        每行一个名字（也支持逗号 / 顿号分隔）。名单里的第几号就是抽到的号码，号码决定属性与外观；
+          「追加」把新名字排在现有号码之后，「清空并替换」则从 1 号开始、战绩清零全新开打。
+      </p>
+      <textarea id="rosterText" placeholder="赵子龙&#10;关云长&#10;张翼德&#10;马孟起"></textarea>
+      <div class="modal-row">
+        <button id="sampleBtn" class="btn small">填入示例名单</button>
+        <label class="inline">本场上场人数
+          <input id="rosterCountInput" class="tiny" type="number" min="2" max="70" value="20" />
+        </label>
+        <span class="hint">最多 70 人</span>
+      </div>
+      <div class="modal-foot">
+        <button id="rosterAppend" class="btn">追加到现有名单</button>
+        <button id="rosterReplace" class="btn danger">清空并替换</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

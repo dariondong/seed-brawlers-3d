@@ -1,0 +1,20 @@
+{
+  "name": "seed-brawlers-3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "抽号（或自定义名单摇号）生成确定性 3D 小人，2~70 人同台逐轮淘汰搏斗，右侧实时显示胜率排行榜。",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test \"tests/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "three": "^0.169.0"
+  }
+}
