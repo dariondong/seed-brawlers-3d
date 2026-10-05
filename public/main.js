@@ -31,6 +31,7 @@ const els = {
   roundBadge: $('roundBadge'),
   championBanner: $('championBanner'),
   poolSize: $('poolSize'),
+  modeBadge: $('modeBadge'),
   rosterBtn: $('rosterBtn'),
   rosterModal: $('rosterModal'),
   rosterText: $('rosterText'),
@@ -267,6 +268,16 @@ async function refresh() {
   fighters = state.fighters;
   leaderboard = state.leaderboard;
   byId = new Map(fighters.map((f) => [f.id, f]));
+
+  // 纯静态模式（GitHub Pages）没有后端，数据存本地，提示一下避免误解。
+  const backendMode = document.documentElement.dataset.backend;
+  if (els.modeBadge) {
+    els.modeBadge.hidden = backendMode !== 'local';
+    if (backendMode === 'local') {
+      els.modeBadge.textContent = '静态模式 · 数据存本地';
+      els.modeBadge.title = '当前无后端服务，全部计算在浏览器内完成，数据保存在本机 localStorage。';
+    }
+  }
 
   if (selection.A && !byId.has(selection.A.id)) selection.A = null;
   if (selection.B && !byId.has(selection.B.id)) selection.B = null;

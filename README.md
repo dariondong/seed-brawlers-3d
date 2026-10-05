@@ -8,6 +8,8 @@
 
 > 一个完整可跑的系统：确定性随机 → 小人属性生成 → 对撞战斗模拟 → 多人淘汰赛 → 3D 可视化 → 战绩持久化 → 胜率排行榜。
 
+**🌐 在线体验（GitHub Pages）：<https://dariondong.github.io/seed-brawlers-3d/>**
+
 ---
 
 ## ✨ 功能一览
@@ -21,12 +23,22 @@
 | ⚔️ 单挑对撞 | 先蓄力冲锋，再逐拍交手；含命中/闪避/暴击/反击/击退，可选单局 / 三局两胜 / 五局三胜 / 七局四胜 |
 | 🏆 胜率排行榜 | 右侧实时显示，按 **胜率 → 胜场 → 战力** 排序，前三名有奖牌 |
 | 🎥 3D 竞技场 | Three.js 实时渲染，方块风格小人，可拖拽旋转 / 缩放视角 |
-| 💾 持久化 | 小人与战绩写入 `data/state.json`，重启不丢失 |
-| 🌐 纯前端零构建 | 原生 ES Module + 本地 vendor 的 Three.js，无需打包工具 |
+| 💾 持久化 | 两种运行模式各自持久化，刷新 / 重启不丢失 |
+| 🌐 双模式 + 零构建 | 同一套前端，既能连 Node 后端，也能纯静态跑；原生 ES Module，无需打包工具 |
 
 ---
 
-## 🚀 快速开始
+## 🚀 两种运行方式（同一套前端，自动切换）
+
+前端启动时会探测 `/api/health`：
+
+- **探测到后端** → 走 HTTP，数据存服务端 `data/state.json`（功能最全，多人共享同一份数据）。
+- **探测不到后端**（如 GitHub Pages / 直接打开文件）→ **自动切换为浏览器内置后端**：同一套 `engine/` 在浏览器里运行，数据存 `localStorage`。
+  此模式下页面标题下会显示徽标 **「静态模式 · 数据存本地」**。
+
+> 因此本仓库既可以直接 `npm start` 当完整服务跑，也可以部署到任意静态托管（GitHub Pages / Netlify / Vercel 静态…）。
+
+### 方式 A：本地完整服务（Node）
 
 ```bash
 # 需要 Node.js >= 20
@@ -38,8 +50,27 @@ npm start
 
 ```bash
 npm run dev    # 开发模式（文件变更自动重启）
-npm test       # 运行全部测试（31 个用例）
+npm test       # 运行全部测试（34 个用例）
 ```
+
+### 方式 B：纯静态预览（模拟 GitHub Pages）
+
+```bash
+npm run pages   # 同步引擎 + 启动零依赖静态服务器
+```
+
+打开 <http://localhost:4173>（等同于把 `public/` 作为站点根，等价于 Pages 环境）。
+
+### 方式 C：GitHub Pages 在线部署
+
+本仓库自带工作流 [`.github/workflows/pages.yml`](.github/workflows/pages.yml)：
+
+1. push 到 `main` 后自动触发（也可在 Actions 页面手动 `workflow_dispatch`）。
+2. 流程：`checkout → 同步 engine 到 public/engine → npm test → 上传 public/ → deploy-pages`。
+3. 部署完成后访问：<https://dariondong.github.io/seed-brawlers-3d/>
+
+> ⚠️ GitHub Free 计划下 Pages 仅支持**公开仓库**；若仓库为私有，需在 Settings → Pages 或升级计划后启用。
+> 首次部署若未自动开启 Pages，去 **Settings → Pages → Build and deployment → Source 选择 “GitHub Actions”** 即可。
 
 ---
 
@@ -87,28 +118,39 @@ npm test       # 运行全部测试（31 个用例）
 ## 🗂️ 项目结构
 
 ```
+engine/            ★ 共享引擎（纯 JS，无 Node 依赖，浏览器 / 服务端通用）
+  rng.js           确定性随机（FNV-1a + mulberry32）
+  fighters.js      号码 → 小人 生成（支持姓名覆盖）+ 排行排序
+  battle.js        对撞战斗模拟（单局 / 系列赛）
+  royale.js        多人同台逐轮淘汰赛（2~70 人）
+  state.js         状态与业务操作（抽号 / 对撞 / 大乱斗 / 名单 / 排行）
 server/
-  rng.js        确定性随机（FNV-1a + mulberry32）
-  fighters.js   号码 → 小人 生成（支持姓名覆盖）+ 排行排序
-  battle.js     对撞战斗模拟（单局 / 系列赛）
-  royale.js     多人同台逐轮淘汰赛（2~70 人）
-  store.js      内存 + JSON 文件持久化
-  index.js      Express API + 静态资源服务
-public/
-  index.html    页面结构
-  styles.css    UI 样式
-  main.js       UI 逻辑（抽号 / 名单 / 单挑 / 大乱斗 / 榜单）
-  scene.js      3D 竞技场、镜头、单挑与多人淘汰赛动画
-  humanoid.js   用基础几何体搭建方块风格 3D 小人
-  api.js        前端 API 封装
-  vendor/       本地 Three.js（离线可用）
-tests/          node:test 测试（生成 / 战斗 / 大乱斗 / 存储 / API）
-data/           运行时生成的 state.json（已 gitignore）
+  store.js         Node 持久化外壳（把 engine 状态读写到 data/state.json）
+  index.js         Express API + 静态资源服务
+public/            ← 静态站点根（GitHub Pages 直接部署这个目录）
+  index.html       页面结构
+  styles.css       UI 样式
+  main.js          UI 逻辑（抽号 / 名单 / 单挑 / 大乱斗 / 榜单）
+  scene.js         3D 竞技场、镜头、单挑与多人淘汰赛动画
+  humanoid.js      用基础几何体搭建方块风格 3D 小人
+  api.js           前端 API 封装（自动选择远端 / 本地后端）
+  backend.js       ★ 浏览器内置后端（静态模式下运行 engine + localStorage）
+  engine/          ★ engine/ 的同步拷贝（浏览器只能 import 站点内文件）
+  vendor/          本地 Three.js（离线可用）
+scripts/
+  sync-engine.mjs  把 engine/ 同步到 public/engine/，`--check` 校验一致性
+  static-server.mjs 零依赖静态预览服务器（模拟 Pages）
+tests/             node:test 测试（生成 / 战斗 / 大乱斗 / 存储 / API / 静态模式）
+data/              运行时生成的 state.json（已 gitignore）
 ```
+
+> `engine/` 是**唯一事实来源**；`public/engine/` 是给浏览器用的拷贝，由 `npm run sync:engine` 生成，并有测试保证二者始终一致。
 
 ---
 
 ## 🔌 API
+
+本表对应「方式 A：Node 服务」；静态模式下 `public/api.js` 会自动把这些调用路由到浏览器内置后端，**调用签名完全一致**。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
@@ -134,12 +176,12 @@ curl -X POST localhost:3000/api/roster -H 'Content-Type: application/json' -d '{
 
 ## ⚙️ 可调参数
 
-- 属性区间：`server/fighters.js` 的 `statScore()`
-- 战斗节奏：`server/battle.js` 的 `MAX_ROUNDS`、命中/暴击/反击公式
-- 大乱斗上限：`server/royale.js` 与 `public/main.js` 的 `MAX_ROSTER`
+- 属性区间：`engine/fighters.js` 的 `statScore()`
+- 战斗节奏：`engine/battle.js` 的 `MAX_ROUNDS`、命中/暴击/反击公式
+- 大乱斗上限：`engine/royale.js`、`engine/state.js` 与 `public/main.js` 的 `MAX_ROSTER`
 - 人数越多动画越快：`public/scene.js` 的 `playRoyale()` 内 `speed`
-- 派系与元素：`server/fighters.js` 顶部的 `ARCHETYPES` / `ELEMENTS`
-- 端口：环境变量 `PORT`（默认 `3000`）
+- 派系与元素：`engine/fighters.js` 顶部的 `ARCHETYPES` / `ELEMENTS`
+- 端口：环境变量 `PORT`（默认 `3000`；静态预览默认 `4173`）
 
 ---
 

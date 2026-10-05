@@ -38,6 +38,7 @@ html, body {
 .logo { font-size: 30px; filter: drop-shadow(0 0 12px #ff4d6d88); }
 .brand h1 { margin: 0; font-size: 19px; letter-spacing: 1px; }
 .brand p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.mode-badge { display: inline-block; margin-top: 4px; padding: 1px 7px; border-radius: 999px; font-size: 10px; letter-spacing: .5px; color: #b9c6f0; background: rgba(77, 171, 255, .12); border: 1px solid rgba(77, 171, 255, .35); }
 
 .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .controls input[type='number'] {

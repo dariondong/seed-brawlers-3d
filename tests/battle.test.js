@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createFighterFromNumber } from '../server/fighters.js';
-import { simulateBattle, simulateSeries } from '../server/battle.js';
+import { createFighterFromNumber } from '../engine/fighters.js';
+import { simulateBattle, simulateSeries } from '../engine/battle.js';
 
 function pair(a, b) {
   return [createFighterFromNumber(a), createFighterFromNumber(b)];

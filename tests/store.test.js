@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Store } from '../server/store.js';
-import { createFighterFromNumber } from '../server/fighters.js';
+import { createFighterFromNumber } from '../engine/fighters.js';
 
 function newStore() {
   return new Store({ persist: false });

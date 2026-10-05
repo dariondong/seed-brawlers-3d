@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createFighterFromNumber } from '../server/fighters.js';
-import { simulateRoyale, royaleOutcomes, seededShuffle } from '../server/royale.js';
+import { createFighterFromNumber } from '../engine/fighters.js';
+import { simulateRoyale, royaleOutcomes, seededShuffle } from '../engine/royale.js';
 
 const makeRoster = (n) => Array.from({ length: n }, (_, i) => createFighterFromNumber(i + 1));
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createFighterFromNumber, compareFighters } from '../server/fighters.js';
-import { createRng } from '../server/rng.js';
+import { createFighterFromNumber, compareFighters } from '../engine/fighters.js';
+import { createRng } from '../engine/rng.js';
 
 test('同一个号码总是生成完全相同的小人（外观/属性/姓名）', () => {
   const { createdAt: _a, ...a } = createFighterFromNumber(42);
