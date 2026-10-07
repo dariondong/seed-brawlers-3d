@@ -3,14 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "抽号（或自定义名单摇号）生成确定性 3D 小人，2~70 人同台逐轮淘汰搏斗，右侧实时显示胜率排行榜。",
+  "description": "抽号（或自定义名单摇号）生成确定性 3D 小人，2~70 人同台混战，右侧实时显示胜率排行榜。",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "sync:engine": "node scripts/sync-engine.mjs",
     "pages": "node scripts/sync-engine.mjs && node scripts/static-server.mjs",
-    "test": "node --test tests/*.test.js"
+    "test": "node scripts/sync-engine.mjs && node --test tests/*.test.js",
+    "e2e": "node scripts/e2e.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -18,5 +19,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.12.0"
   }
 }

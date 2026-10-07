@@ -3,8 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>抽号斗士 3D · 名单摇号 · 同台大乱斗</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f4f3ef'/%3E%3Crect x='46' y='14' width='8' height='72' fill='%23e2231a'/%3E%3Crect x='14' y='46' width='72' height='8' fill='%23121212'/%3E%3C/svg%3E" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0b0e14" />
+  <title>抽号斗士 3D · 名单摇号 · 同台混战</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230b0e14'/%3E%3Crect x='46' y='16' width='8' height='68' rx='4' fill='%23ffb020'/%3E%3Crect x='16' y='46' width='68' height='8' rx='4' fill='%23eef1f8'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -14,7 +16,7 @@
         <span class="logo">抽</span>
         <div>
           <h1>抽号斗士 3D</h1>
-          <p>自定义名单摇号 · 号码即种子 · 2–70 人同台对撞 · 右侧胜率榜</p>
+          <p>自定义名单摇号 · 号码即种子 · 2–70 人同台混战 · 右侧胜率榜</p>
           <span id="modeBadge" class="mode-badge" hidden></span>
         </div>
       </div>
@@ -24,7 +26,7 @@
         <button id="autoDrawBtn" class="btn">自动抽 2 号</button>
         <button id="add70" class="btn">抽满 70</button>
         <button id="rosterBtn" class="btn">自定义名单</button>
-        <button id="royaleBtn" class="btn danger" disabled>大乱斗</button>
+        <button id="royaleBtn" class="btn danger" disabled>开打混战</button>
         <select id="bestOf" title="单挑系列赛局数">
           <option value="1">单挑 · 单局</option>
           <option value="3">单挑 · 三局两胜</option>
@@ -55,7 +57,7 @@
         </div>
 
         <div class="stage-tools">
-          <select id="speedSel" title="大乱斗播放速度">
+          <select id="speedSel" title="混战播放速度">
             <option value="0.5">0.5×</option>
             <option value="1" selected>1×</option>
             <option value="1.5">1.5×</option>
@@ -113,7 +115,7 @@
       </div>
       <p class="modal-hint">
         每行一个名字（也支持逗号 / 顿号分隔）。名单里的第几号就是抽到的号码，号码决定属性与外观；
-        「追加」把新名字排在现有号码之后，「清空并替换」则从 1 号开始、战绩清零全新开打。
+        「追加」把新名字排在现有号码之后，「清空并替换」则从 1 号开始、战绩清零全新开打。开打后全员同时厮杀，最后站着的人获胜。
       </p>
       <textarea id="rosterText" placeholder="赵子龙&#10;关云长&#10;张翼德&#10;马孟起"></textarea>
       <div class="modal-row">

@@ -1,12 +1,25 @@
 import * as THREE from './vendor/three.module.js';
 
-function mat(color, { emissive = '#000000', emissiveIntensity = 0, metalness = 0.12, roughness = 0.62 } = {}) {
-  return new THREE.MeshStandardMaterial({
+// 2.5D 卡通着色：3~4 级色阶的渐变贴图，让受光面呈现硬边平涂，而不是写实过渡。
+let _gradient = null;
+function toonGradient() {
+  if (_gradient) return _gradient;
+  const data = new Uint8Array([92, 150, 206, 255]);
+  const tex = new THREE.DataTexture(data, data.length, 1, THREE.RedFormat);
+  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  _gradient = tex;
+  return tex;
+}
+
+function mat(color, { emissive = '#000000', emissiveIntensity = 0 } = {}) {
+  return new THREE.MeshToonMaterial({
     color: new THREE.Color(color),
     emissive: new THREE.Color(emissive),
     emissiveIntensity,
-    metalness,
-    roughness,
+    gradientMap: toonGradient(),
   });
 }
 
@@ -26,9 +39,10 @@ export function buildHumanoid(fighter, { light = true } = {}) {
   const root = new THREE.Group();
   root.name = fighter.id;
 
-  // 瑞士风：哑光平涂，不使用自发光；靠明度区分躯干与四肢。
-  const skin = mat(color, { metalness: 0.06, roughness: 0.72 });
-  const armor = mat(shade(color, -0.34), { metalness: 0.18, roughness: 0.58 });
+  // 2.5D 平涂：色阶卡通材质，靠明度差区分躯干与四肢；不加高光。
+  // 自发光保持 0.25：环境光偏暗时也保证小人本色不丢失（不额外增加动态光源开销）。
+  const skin = mat(color, { emissive: color, emissiveIntensity: 0.25 });
+  const armor = mat(shade(color, -0.3), { emissive: shade(color, -0.3), emissiveIntensity: 0.25 });
   const core = new THREE.MeshBasicMaterial({ color: new THREE.Color(glow) });
 
   const H = body.height;
@@ -121,6 +135,20 @@ export function buildHumanoid(fighter, { light = true } = {}) {
   const leftLeg = makeLeg(1);
   const rightLeg = makeLeg(-1);
 
+  // 2.5D 扁平投影：脚下一块深色圆斑，代替写实软阴影（更贴平涂风、且更省）。
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.42 * B, 24),
+    new THREE.MeshBasicMaterial({
+      color: '#05070c',
+      transparent: true,
+      opacity: 0.34,
+      depthWrite: false,
+    }),
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.02;
+  root.add(shadow);
+
   let aura = null;
   if (light) {
     aura = new THREE.PointLight(new THREE.Color(glow), 1.1, 4.2, 2);
@@ -130,7 +158,7 @@ export function buildHumanoid(fighter, { light = true } = {}) {
 
   root.userData = {
     fighterId: fighter.id,
-    parts: { pelvis, torso, head, coreMesh, leftArm, rightArm, leftLeg, rightLeg, aura },
+    parts: { pelvis, torso, head, coreMesh, leftArm, rightArm, leftLeg, rightLeg, aura, shadow },
   };
 
   return root;
