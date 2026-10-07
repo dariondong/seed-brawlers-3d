@@ -7,9 +7,9 @@ const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const easeOut = (t) => 1 - (1 - t) ** 3;
 const clamp01 = (t) => Math.max(0, Math.min(1, t));
 
-// 暗色竞技场配色：深空底 + 冷调地面 + 琥珀金重音（冠军/名次）
-const PAPER = '#0b0e14'; // 主背景（深空）
-const PAPER_2 = '#12151f'; // 地面
+// 2.5D 平涂竞技场：中深色底 + 更浅的地面让角色“站”在平面上，琥珀金重音。
+const PAPER = '#12161f'; // 背景（中深色，不是纯黑）
+const PAPER_2 = '#232c3f'; // 地面（比背景亮一档，撑出平面纵深）
 const INK = '#e8ecf5'; // 线条 / 冲击标记（暗底上用亮色）
 const RED = '#ff5a5f'; // 危险色
 const GOLD = '#ffb020'; // 冠军金
@@ -28,7 +28,7 @@ export function fighterTotalHeight(f) {
   return legLen + 0.06 + torsoLen + 0.36 * f.body.headSize;
 }
 
-// 姓名牌：瑞士风格 —— 白底黑字、左侧派系色小块，不发光。
+// 姓名牌：深色圆角胶囊 + 亮字 + 派系色点，2.5D 平涂风格。
 function makeNameSprite(fighter, scale) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -36,30 +36,45 @@ function makeNameSprite(fighter, scale) {
   canvas.height = 128;
 
   const label = `#${fighter.number} ${fighter.name}`;
-  ctx.font = '800 50px "Helvetica Neue","Noto Sans SC","PingFang SC",system-ui,sans-serif';
-  const textW = Math.min(canvas.width - 64, ctx.measureText(label).width);
+  ctx.font = '800 48px "Inter","Noto Sans SC","PingFang SC",system-ui,sans-serif';
+  const textW = Math.min(canvas.width - 72, ctx.measureText(label).width);
   const pad = 22;
-  const block = 16;
-  const boxW = textW + pad * 2 + block + 12;
+  const dot = 18;
+  const boxW = textW + pad * 2 + dot + 12;
   const x = (canvas.width - boxW) / 2;
-  const y = 20;
-  const boxH = 88;
+  const y = 22;
+  const boxH = 84;
+  const r = boxH / 2;
 
-  // 白底 + 墨边框（硬边直角）
-  ctx.fillStyle = 'rgba(255,255,255,0.94)';
-  ctx.fillRect(x, y, boxW, boxH);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = INK;
-  ctx.strokeRect(x + 2, y + 2, boxW - 4, boxH - 4);
+  const round = (rx, ry, rw, rh, rr) => {
+    ctx.beginPath();
+    ctx.moveTo(rx + rr, ry);
+    ctx.arcTo(rx + rw, ry, rx + rw, ry + rh, rr);
+    ctx.arcTo(rx + rw, ry + rh, rx, ry + rh, rr);
+    ctx.arcTo(rx, ry + rh, rx, ry, rr);
+    ctx.arcTo(rx, ry, rx + rw, ry, rr);
+    ctx.closePath();
+  };
 
-  // 派系色标
+  // 深色胶囊底 + 冷光描边
+  ctx.fillStyle = 'rgba(11,14,20,0.9)';
+  round(x, y, boxW, boxH, r);
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(120,139,183,0.75)';
+  round(x + 1.5, y + 1.5, boxW - 3, boxH - 3, r);
+  ctx.stroke();
+
+  // 派系色点
   ctx.fillStyle = fighter.color || RED;
-  ctx.fillRect(x + pad, y + (boxH - block) / 2, block, block);
+  ctx.beginPath();
+  ctx.arc(x + pad + dot / 2, y + boxH / 2, dot / 2, 0, Math.PI * 2);
+  ctx.fill();
 
-  ctx.fillStyle = INK;
+  ctx.fillStyle = '#eef1f8';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, x + pad + block + 12, y + boxH / 2 + 2);
+  ctx.fillText(label, x + pad + dot + 12, y + boxH / 2 + 2);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 2;
@@ -88,19 +103,27 @@ export class Arena {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(PAPER);
-    this.scene.fog = new THREE.Fog(PAPER, 16, 46);
+    // 2.5D 平涂不需要雾；雾只会让暗色地面出现写实渐变。
+    this.scene.fog = null;
 
-    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 400);
-    this.camera.position.set(0, 3, 9);
+    // 正交相机 + 固定机位 = 平面 2.5D 观感（没有透视收缩，纵深压扁）。
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
+    this.camDist = 60;
+    this.camDir = new THREE.Vector3(0.52, 0.68, 0.55).normalize();
+    this.camera.position.copy(this.camDir).multiplyScalar(this.camDist);
+    this.camTargetY = 1.0;
+    this.worldUp = new THREE.Vector3(0, 1, 0);
+    // 正交取景半尺寸（世界单位），由 setRoster 依据投影包围盒算出。
+    this.fitHalf = { w: 6, h: 6 };
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.target.set(0, 0.9, 0);
+    this.controls.target.set(0, this.camTargetY, 0);
     this.controls.enablePan = false;
-    this.controls.minDistance = 2.5;
-    this.controls.maxDistance = 60;
-    this.controls.maxPolarAngle = Math.PI * 0.52;
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
+    this.controls.maxPolarAngle = Math.PI * 0.48;
+    this.controls.minPolarAngle = Math.PI * 0.14;
+    this.controls.zoomSpeed = 0.8;
 
     this.#buildWorld();
 
@@ -126,40 +149,36 @@ export class Arena {
   }
 
   #buildWorld() {
-    // 暗色竞技场：冷调环境光 + 暖色主光，让方块小人从深底上“浮”出来。
-    this.hemi = new THREE.HemisphereLight('#93a6d4', '#0a0e18', 1.25);
+    // 2.5D 平涂打光：一盏方向光给出固定明暗面（配卡通色阶即硬边平涂），
+    // 环境光整体提亮；不用点光/多向补光，避免写实的渐变与高光。
+    this.hemi = new THREE.HemisphereLight('#ffffff', '#7d86a0', 1.15);
     this.scene.add(this.hemi);
 
-    this.key = new THREE.DirectionalLight('#fff4e2', 2.8);
-    this.key.position.set(7, 15, 9);
-    this.key.castShadow = true;
-    this.key.shadow.mapSize.set(1024, 1024);
-    this.key.shadow.camera.near = 1;
-    this.key.shadow.camera.far = 70;
+    this.key = new THREE.DirectionalLight('#ffffff', 1.7);
+    this.key.position.set(5, 12, 7);
     this.scene.add(this.key);
-
-    // 冷色补光：从对侧压出边缘，增强体积感
-    this.rim = new THREE.DirectionalLight('#6f8dff', 1.25);
-    this.rim.position.set(-9, 7, -8);
-    this.scene.add(this.rim);
-
-    // 场地中心柔光，突出擂台
-    this.spot = new THREE.PointLight('#ffd9a0', 1.1, 40, 2);
-    this.spot.position.set(0, 9, 0);
-    this.scene.add(this.spot);
 
     this.floor = new THREE.Mesh(
       new THREE.CircleGeometry(1, 64),
-      new THREE.MeshStandardMaterial({ color: PAPER_2, metalness: 0.3, roughness: 0.55 }),
+      new THREE.MeshBasicMaterial({ color: PAPER_2 }),
     );
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.receiveShadow = true;
     this.scene.add(this.floor);
 
+    // 全幅地面：填满画面，避免场地圆外露出背景色（宽画布下尤其明显）。
+    this.ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 200),
+      new THREE.MeshBasicMaterial({ color: '#0e1220' }),
+    );
+    this.ground.rotation.x = -Math.PI / 2;
+    this.ground.position.y = -0.02;
+    this.scene.add(this.ground);
+
     // 场地外圈：冷光细线
     this.ring = new THREE.Mesh(
       new THREE.RingGeometry(1, 1.02, 128),
-      new THREE.MeshBasicMaterial({ color: '#46557a', side: THREE.DoubleSide, transparent: true, opacity: 0.9 }),
+      new THREE.MeshBasicMaterial({ color: '#5d6f99', side: THREE.DoubleSide, transparent: true, opacity: 0.95 }),
     );
     this.ring.rotation.x = -Math.PI / 2;
     this.ring.position.y = 0.01;
@@ -168,14 +187,17 @@ export class Arena {
     // 内圈重音细线（琥珀金）
     this.ringInner = new THREE.Mesh(
       new THREE.RingGeometry(1, 1.015, 128),
-      new THREE.MeshBasicMaterial({ color: GOLD, side: THREE.DoubleSide, transparent: true, opacity: 0.7 }),
+      new THREE.MeshBasicMaterial({ color: GOLD, side: THREE.DoubleSide, transparent: true, opacity: 0.8 }),
     );
     this.ringInner.rotation.x = -Math.PI / 2;
     this.ringInner.position.y = 0.012;
     this.scene.add(this.ringInner);
 
-    // 暗色地面上的淡网格
-    this.grid = new THREE.GridHelper(40, 40, '#1d2432', '#161b26');
+    // 地面极坐标网格：同心圆 + 放射线，天然限制在场地圆内。
+    this.grid = new THREE.LineSegments(
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: '#33405c', transparent: true, opacity: 0.55 }),
+    );
     this.grid.position.y = 0.004;
     this.scene.add(this.grid);
 
@@ -225,14 +247,11 @@ export class Arena {
     const positions = formation(fighters.length);
     const n = fighters.length;
     const lightThreshold = 10;
-    const shadowThreshold = 16;
     const perfMode = n > lightThreshold;
 
-    this.renderer.shadowMap.enabled = n <= shadowThreshold;
-    this.key.castShadow = n <= shadowThreshold;
+    // 2.5D 不使用写实阴影贴图：人物自带扁平投影圆斑，地面为纯色平涂。
+    this.renderer.shadowMap.enabled = false;
     this.renderer.setPixelRatio(perfMode ? 1 : Math.min(window.devicePixelRatio, 2));
-    // 大量物体时关闭雾效（每材质都要计算，开销明显）。
-    this.scene.fog = n > 24 ? null : new THREE.Fog(PAPER, 26, 62);
 
     const radius = n <= 2 ? 3 : Math.max(3.2, 0.95 * Math.sqrt(n)) + 1.8;
     this.floor.geometry.dispose();
@@ -241,7 +260,7 @@ export class Arena {
     this.ring.geometry = new THREE.RingGeometry(radius - 0.06, radius, 160);
     this.ringInner.geometry.dispose();
     this.ringInner.geometry = new THREE.RingGeometry(radius * 0.42, radius * 0.42 + 0.03, 120);
-    this.grid.scale.setScalar(radius / 7);
+    this.#buildGrid(radius);
 
     const nameScale = n > 30 ? 0.72 : n > 12 ? 0.9 : 1;
     const h = new THREE.Vector3();
@@ -283,18 +302,76 @@ export class Arena {
 
     this.count = n;
 
-    // 镜头框住全场
-    const camDist = n <= 2 ? 7.5 : radius * 2.05 + 3;
-    const camHeight = n <= 2 ? 2.6 : radius * 0.95 + 2.4;
-    this.camera.position.set(0, camHeight, camDist);
-    this.controls.target.set(0, n <= 2 ? 0.95 : 1.1, 0);
-    this.controls.maxDistance = Math.max(30, camDist * 2.6);
+    // 2.5D：正交相机固定朝向，按“斗士分布范围”自动取景，让小人尽量占满画面，
+    // 场地圆略微溢出画面边缘（更有沉浸感）。
+    const fighterR = positions.reduce((m, p) => Math.max(m, Math.hypot(p.x, p.z)), 1.6);
+    this.controls.target.set(0, 1.0, 0);
+    this.camera.position.copy(this.camDir).multiplyScalar(this.camDist);
+    this.controls.minZoom = 0.4;
+    this.controls.maxZoom = 4;
+    this.camera.zoom = 1;
     this.controls.update();
+    this.#fitCamera(fighterR + 1.2, 0.3);
     this.baseCam.copy(this.camera.position);
-    if (this.scene.fog) {
-      this.scene.fog.near = n <= 2 ? 10 : radius * 1.4;
-      this.scene.fog.far = n <= 2 ? 26 : radius * 5 + 20;
+  }
+
+  // 生成同心圆 + 放射线的极坐标地面网格。
+  #buildGrid(radius) {
+    const pts = [];
+    const rings = 5;
+    const seg = 72;
+    for (let r = 1; r <= rings; r++) {
+      const rr = (radius * r) / rings;
+      for (let i = 0; i < seg; i++) {
+        const a0 = (i / seg) * Math.PI * 2;
+        const a1 = ((i + 1) / seg) * Math.PI * 2;
+        pts.push(Math.cos(a0) * rr, 0, Math.sin(a0) * rr);
+        pts.push(Math.cos(a1) * rr, 0, Math.sin(a1) * rr);
+      }
     }
+    const spokes = 12;
+    for (let i = 0; i < spokes; i++) {
+      const a = (i / spokes) * Math.PI * 2;
+      pts.push(0, 0, 0);
+      pts.push(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    this.grid.geometry.dispose();
+    this.grid.geometry = g;
+  }
+
+  // 把场地圆的投影包围盒（含人物高度）装进正交视野，并留出边距。
+  #fitCamera(radius, pad = 1.6) {
+    const fwd = this.camDir.clone().negate(); // 相机朝向
+    const right = new THREE.Vector3().crossVectors(fwd, this.worldUp).normalize();
+    const up = new THREE.Vector3().crossVectors(right, fwd).normalize();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const v = new THREE.Vector3();
+    // 采样地面圆环 + 内圈，并叠加一段“人物高度”把立面也算进去。
+    for (let i = 0; i < 64; i++) {
+      const a = (i / 64) * Math.PI * 2;
+      const gx = Math.cos(a) * radius;
+      const gz = Math.sin(a) * radius;
+      for (const gy of [0, 1.7]) {
+        v.set(gx, gy, gz);
+        const sx = v.dot(right);
+        const sy = v.dot(up);
+        minX = Math.min(minX, sx); maxX = Math.max(maxX, sx);
+        minY = Math.min(minY, sy); maxY = Math.max(maxY, sy);
+      }
+    }
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const target = right.clone().multiplyScalar(cx).add(up.clone().multiplyScalar(cy));
+    this.controls.target.copy(target);
+    this.fitHalf = {
+      w: (maxX - minX) / 2 + pad,
+      h: (maxY - minY) / 2 + pad,
+    };
+    this.camera.position.copy(this.camDir).multiplyScalar(this.camDist);
+    this.controls.update();
+    this.resize();
   }
 
   #entry(id) {
@@ -438,6 +515,8 @@ export class Arena {
     const hop = !entry.dead && entry.alive ? Math.abs(Math.sin(this.elapsed * 9 + entry.bob)) * 0.05 : 0;
     g.position.set(entry.mx, hop - entry.sink, entry.mz);
     g.rotation.set(0, entry.mry, entry.tip);
+    // 扁平投影始终贴地：抵消身体前后倾倒。
+    if (parts.shadow) parts.shadow.rotation.x = -Math.PI / 2 - entry.tip;
   }
 
   // ---------------- 单挑 ----------------
@@ -564,6 +643,7 @@ export class Arena {
 
     g.position.set(px, py, pz);
     g.rotation.set(0, entry.home.ry, tip);
+    if (parts.shadow) parts.shadow.rotation.x = -Math.PI / 2 - tip;
   }
 
   #stepAnim(dt, meleeDt = dt) {
@@ -846,7 +926,14 @@ export class Arena {
     const w = parent.clientWidth || window.innerWidth;
     const h = parent.clientHeight || window.innerHeight;
     this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
+    const aspect = w / h;
+    // 保证宽高两个方向都装得下（取更宽松的那个缩放）。
+    const halfW = Math.max(this.fitHalf.w, this.fitHalf.h * aspect);
+    const halfH = halfW / aspect;
+    this.camera.left = -halfW;
+    this.camera.right = halfW;
+    this.camera.top = halfH;
+    this.camera.bottom = -halfH;
     this.camera.updateProjectionMatrix();
   }
 

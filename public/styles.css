@@ -178,7 +178,7 @@ input[type='number']:focus, select:focus, .search:focus {
 .stage {
   position: relative;
   grid-column: 1; grid-row: 1;
-  background: radial-gradient(120% 90% at 50% 8%, #131826 0%, #0a0d14 72%);
+  background: radial-gradient(120% 90% at 50% 6%, #1b2233 0%, #0e1220 74%);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   overflow: hidden;
